@@ -103,6 +103,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--EPOCHS", type=int, default=500, help="number of epochs")
     parser.add_argument("--PTS", type=int, default=50, help="number of points")
     parser.add_argument("--HIDDEN", type=int, default=10, help="number of hiddens")
     parser.add_argument("--RATE", type=float, default=0.05, help="learning rate")
@@ -126,4 +127,4 @@ if __name__ == "__main__":
 
     FastTrain(
         HIDDEN, backend=FastTensorBackend if args.BACKEND != "gpu" else GPUBackend
-    ).train(data, RATE)
+    ).train(data, RATE, args.EPOCHS)

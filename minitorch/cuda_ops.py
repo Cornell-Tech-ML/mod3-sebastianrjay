@@ -231,7 +231,8 @@ def tensor_zip(
             broadcast_index(out_index, out_shape, b_shape, b_index)
             j = index_to_position(a_index, a_strides)
             k = index_to_position(b_index, b_strides)
-            out[i] = fn(a_storage[j], b_storage[k])
+            out_pos = index_to_position(out_index, out_strides)
+            out[out_pos] = fn(a_storage[j], b_storage[k])
 
     return cuda.jit()(_zip)  # type: ignore
 
@@ -265,17 +266,19 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
 
     if i < size:
         cache[pos] = a[i]
+    else:
+        cache[pos] = 0.0
+    cuda.syncthreads()
+
+    stride = BLOCK_DIM // 2
+    while stride > 0:
+        if pos < stride:
+            cache[pos] += cache[pos + stride]
         cuda.syncthreads()
+        stride //= 2
 
-        s = 1
-        while pos + s < BLOCK_DIM:
-            if pos % (2 * s) == 0:
-                cache[pos] += cache[pos + s]
-                cuda.syncthreads()
-            s *= 2
-
-        if pos == 0:
-            out[cuda.blockIdx.x] = cache[0]
+    if pos == 0:
+        out[cuda.blockIdx.x] = cache[0]
 
 
 jit_sum_practice = cuda.jit()(_sum_practice)
@@ -323,31 +326,36 @@ def tensor_reduce(
         BLOCK_DIM = 1024
         cache = cuda.shared.array(BLOCK_DIM, numba.float64)
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
+        a_index = cuda.local.array(MAX_DIMS, numba.int32)
         out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
 
-        cache[pos] = reduce_value
+        to_index(out_pos, out_shape, out_index)
 
-        if out_pos < out_size:
-            to_index(out_pos, out_shape, out_index)
-            out_index[reduce_dim] = BLOCK_DIM * out_index[reduce_dim] + pos
-            final_pos = index_to_position(out_index, out_strides)
+        acc = reduce_value
+        reduce_len = a_shape[reduce_dim]
 
-            if out_index[reduce_dim] < a_shape[reduce_dim]:
-                a_pos = index_to_position(out_index, a_strides)
-                cache[pos] = a_storage[a_pos]
+        for s in range(pos, reduce_len, BLOCK_DIM):
+            for d in range(len(out_shape)):
+                a_index[d] = out_index[d]
+            a_index[reduce_dim] = s
+            a_pos = index_to_position(a_index, a_strides)
+            a_value = a_storage[a_pos]
+            acc = fn(acc, a_value)
 
-                cuda.syncthreads()
+        cache[pos] = acc
+        cuda.syncthreads()
 
-                s = 1
-                while s < BLOCK_DIM:
-                    if pos % (2 * s) == 0:
-                        cache[pos] = fn(cache[pos], cache[pos + s])
-                        cuda.syncthreads()
-                    s *= 2
+        stride = BLOCK_DIM // 2
+        while stride > 0:
+            if pos < stride:
+                cache[pos] = fn(cache[pos], cache[pos + stride])
+            cuda.syncthreads()
+            stride //= 2
 
-            if pos == 0:
-                out[final_pos] = cache[pos]
+        if pos == 0:
+            final_out_pos = index_to_position(out_index, out_strides)
+            out[final_out_pos] = cache[0]
 
     return jit(_reduce)  # type: ignore
 
@@ -386,20 +394,20 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
     BLOCK_DIM = 32
     shared_a = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
     shared_b = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
-    # x = numba.cuda.blockIdx.x * THREADS_PER_BLOCK + numba.cuda.threadIdx.x
     x = cuda.blockIdx.x
-    # y = numba.cuda.blockIdx.y * THREADS_PER_BLOCK + numba.cuda.threadIdx.y
     y = cuda.blockIdx.y
 
     if x < size and y < size:
-        idx = size * x + y
-        shared_a[x, y] = a[idx]
-        shared_b[x, y] = b[idx]
-        cuda.syncthreads()
+        idx = size * y + x
+        shared_a[y, x] = a[idx]
+        shared_b[y, x] = b[idx]
 
+    cuda.syncthreads()
+
+    if x < size and y < size:
         total = 0
         for i in range(size):
-            total += shared_a[x, i] * shared_b[i, y]
+            total += shared_a[y, i] * shared_b[i, x]
         out[idx] = total
 
 

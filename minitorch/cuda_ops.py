@@ -457,28 +457,56 @@ def _tensor_matrix_multiply(
     """
     a_batch_stride = a_strides[0] if a_shape[0] > 1 else 0
     b_batch_stride = b_strides[0] if b_shape[0] > 1 else 0
-    # Batch dimension - fixed
+    a_m_strides = a_strides[-2]
+    a_k_strides = a_strides[-1]
+    b_k_strides = b_strides[-2]
+    b_n_strides = b_strides[-1]
+
     batch = cuda.blockIdx.z
 
     BLOCK_DIM = 32
-    a_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
-    b_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
+    a_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float32)
+    b_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float32)
 
-    # The final position c[i, j]
     i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     j = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
+    x = cuda.threadIdx.x
+    y = cuda.threadIdx.y
 
-    # The local position in the block.
-    pi = cuda.threadIdx.x
-    pj = cuda.threadIdx.y
+    M = out_shape[-2]
+    N = out_shape[-1]
+    K = a_shape[-1]
 
-    # Code Plan:
-    # 1) Move across shared dimension by block dim.
-    #    a) Copy into shared memory for a matrix.
-    #    b) Copy into shared memory for b matrix
-    #    c) Compute the dot produce for position c[i, j]
-    # TODO: Implement for Task 3.4.
-    raise NotImplementedError("Need to implement for Task 3.4")
+    result = 0.0
+
+    # Number of tiles to cover the K dimension
+    tiles = (K + BLOCK_DIM - 1) // BLOCK_DIM
+    a_i = i
+    a_j = y
+    b_i = x
+    b_j = j
+    for t in range(tiles):
+        if a_i < M and a_j < K:
+            a_index = batch * a_batch_stride + a_i * a_m_strides + a_j * a_k_strides
+            a_shared[x, y] = a_storage[a_index]
+
+        if b_i < K and b_j < N:
+            b_index = batch * b_batch_stride + b_i * b_k_strides + b_j * b_n_strides
+            b_shared[y, x] = b_storage[b_index]
+
+        cuda.syncthreads()
+
+        # Multiplication for the current tile
+        for k in range(BLOCK_DIM):
+            if (t * BLOCK_DIM + k) < K:
+                result += a_shared[x, k] * b_shared[y, k]
+
+        a_j += BLOCK_DIM
+        b_i += BLOCK_DIM
+
+    if i < M and j < N:
+        out_index = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
+        out[out_index] = result
 
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)

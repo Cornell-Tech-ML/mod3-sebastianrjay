@@ -49,3 +49,6 @@ NOTE: Training of 100 layers on each of the datasets took roughly 2.4s per epoch
 
 # Large(r) Model
 
+I adjusted it to use a whopping 150 layers instead of 100 layers, trained over 200 epochs as shown below.
+
+![Larger model](./images/larger_model.png)

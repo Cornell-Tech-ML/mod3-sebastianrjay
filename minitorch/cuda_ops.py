@@ -274,7 +274,7 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     while stride > 0:
         if pos < stride:
             cache[pos] += cache[pos + stride]
-        cuda.syncthreads()
+            cuda.syncthreads()
         stride //= 2
 
     if pos == 0:
@@ -350,7 +350,7 @@ def tensor_reduce(
         while stride > 0:
             if pos < stride:
                 cache[pos] = fn(cache[pos], cache[pos + stride])
-            cuda.syncthreads()
+                cuda.syncthreads()
             stride //= 2
 
         if pos == 0:

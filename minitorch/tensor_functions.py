@@ -31,12 +31,12 @@ def wrap_tuple(x: Any) -> tuple:  # type: ignore
 class Function:
     @classmethod
     def _backward(cls, ctx: Context, grad_out: Tensor) -> Tuple[Tensor, ...]:
-        """String"""
+        """A function."""
         return wrap_tuple(cls.backward(ctx, grad_out))  # type: ignore
 
     @classmethod
     def _forward(cls, ctx: Context, *inps: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         return cls.forward(ctx, *inps)  # type: ignore
 
     @classmethod
@@ -68,13 +68,13 @@ class Function:
 class Mul(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(a, b)
         return a.f.mul_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        """String"""
+        """A function."""
         a, b = ctx.saved_values
         return (
             grad_output.f.mul_zip(b, grad_output),
@@ -85,14 +85,14 @@ class Mul(Function):
 class Sigmoid(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         out = a.f.sigmoid_map(a)
         ctx.save_for_backward(out)
         return out
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         sigma: Tensor = ctx.saved_values[0]
         return sigma * (-sigma + 1.0) * grad_output
 
@@ -100,13 +100,13 @@ class Sigmoid(Function):
 class ReLU(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(a)
         return a.f.relu_map(a)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         a: Tensor = ctx.saved_values[0]
         return grad_output.f.relu_back_zip(a, grad_output)
 
@@ -114,14 +114,14 @@ class ReLU(Function):
 class Log(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(a)
         out = a.f.log_map(a)
         return out
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         out = ctx.saved_values[0]
         return grad_output.f.log_back_zip(out, grad_output)
 
@@ -129,14 +129,14 @@ class Log(Function):
 class Exp(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         out = a.f.exp_map(a)
         ctx.save_for_backward(out)
         return out
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         out = ctx.saved_values[0]
         return grad_output.f.mul_zip(out, grad_output)
 
@@ -144,13 +144,13 @@ class Exp(Function):
 class LT(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(a.shape, b.shape)
         return a.f.lt_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        """String"""
+        """A function."""
         a_shape, b_shape = ctx.saved_values
         return zeros(a_shape), zeros(b_shape)
 
@@ -158,13 +158,13 @@ class LT(Function):
 class EQ(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(a.shape, b.shape)
         return a.f.eq_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        """String"""
+        """A function."""
         a_shape, b_shape = ctx.saved_values
         return zeros(a_shape), zeros(b_shape)
 
@@ -172,20 +172,20 @@ class EQ(Function):
 class IsClose(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         return a.f.is_close_zip(a, b)
 
 
 class Permute(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, order: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(order)
         return a._new(a._tensor.permute(*[int(order[i]) for i in range(order.size)]))
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
-        """String"""
+        """A function."""
         order: Tensor = ctx.saved_values[0]
         order2: List[int] = [
             a[0]
@@ -199,13 +199,13 @@ class Permute(Function):
 class Sum(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(a.shape, dim)
         return a.f.add_reduce(a, int(dim.item()))
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
-        """String"""
+        """A function."""
         shape, dim = ctx.saved_values
         return grad_output, 0.0
 
@@ -213,25 +213,25 @@ class Sum(Function):
 class Neg(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         return t1.f.neg_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         return grad_output.f.neg_map(grad_output)
 
 
 class Inv(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(t1)
         return t1.f.inv_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         (t1,) = ctx.saved_values
         return grad_output.f.inv_back_zip(t1, grad_output)
 
@@ -239,12 +239,12 @@ class Inv(Function):
 class Add(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         return t1.f.add_zip(t1, t2)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        """String"""
+        """A function."""
         return grad_output, grad_output
 
 
@@ -261,7 +261,7 @@ class All(Function):
 class View(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, shape: Tensor) -> Tensor:
-        """String"""
+        """A function."""
         ctx.save_for_backward(a.shape)
         assert a._tensor.is_contiguous(), "Must be contiguous to view"
         shape2 = [int(shape[i]) for i in range(shape.size)]
@@ -424,7 +424,7 @@ def tensor(
 def grad_central_difference(
     f: Any, *vals: Tensor, arg: int = 0, epsilon: float = 1e-6, ind: UserIndex
 ) -> float:
-    """String"""
+    """A function."""
     x = vals[arg]
     up = zeros(x.shape)
     up[ind] = epsilon

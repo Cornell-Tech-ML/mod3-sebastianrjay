@@ -15,7 +15,7 @@ class SGD(Optimizer):
         self.lr = lr
 
     def zero_grad(self) -> None:
-        """String"""
+        """A function."""
         for p in self.parameters:
             if p.value is None:
                 continue
@@ -27,7 +27,7 @@ class SGD(Optimizer):
                     p.value.grad = None
 
     def step(self) -> None:
-        """String"""
+        """A function."""
         for p in self.parameters:
             if p.value is None:
                 continue

@@ -42,7 +42,7 @@ class TensorOps:
     def reduce(
         fn: Callable[[float, float], float], start: float = 0.0
     ) -> Callable[[Tensor, int], Tensor]:
-        """String"""
+        """A function."""
         ...
 
     @staticmethod

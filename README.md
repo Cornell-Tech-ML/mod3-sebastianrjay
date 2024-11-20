@@ -52,3 +52,7 @@ NOTE: Training of 100 layers on each of the datasets took roughly 2.4s per epoch
 I adjusted it to use a whopping 150 layers instead of 100 layers, trained over 200 epochs as shown below.
 
 ![Larger model](./images/larger_model.png)
+
+# Link to Google Colab Notebook
+
+[Google Colab Notebook](https://colab.research.google.com/drive/12K8D3xll98P_sGarszUsozLjxteH68NS?authuser=2#scrollTo=Cj49cZw_2BnF)

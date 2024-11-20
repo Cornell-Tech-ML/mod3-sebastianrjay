@@ -29,12 +29,12 @@ FakeCUDAKernel = Any
 Fn = TypeVar("Fn")
 
 
-def device_jit(fn: Fn, **kwargs) -> Fn:
+def device_jit(fn: Fn, **kwargs: Any) -> Fn:
     """A function."""
     return _jit(device=True, **kwargs)(fn)  # type: ignore
 
 
-def jit(fn, **kwargs) -> FakeCUDAKernel:
+def jit(fn: Fn, **kwargs: Any) -> FakeCUDAKernel:
     """A function."""
     return _jit(**kwargs)(fn)  # type: ignore
 
@@ -178,7 +178,7 @@ def tensor_map(
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         in_index = cuda.local.array(MAX_DIMS, numba.int32)
         i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-        
+
         if i < out_size:
             to_index(i, out_shape, out_index)
             broadcast_index(out_index, out_shape, in_shape, in_index)
@@ -237,7 +237,7 @@ def tensor_zip(
 
 
 def _sum_practice(out: Storage, a: Storage, size: int) -> None:
-    """A practice sum kernel to prepare for reduce.
+    r"""A practice sum kernel to prepare for reduce.
 
     Given an array of length $n$ and out of size $n // \text{blockDIM}$
     it should sum up each blockDim values into an out cell.
@@ -263,14 +263,26 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     pos = cuda.threadIdx.x
 
-    # TODO: Implement for Task 3.3.
-    raise NotImplementedError("Need to implement for Task 3.3")
+    if i < size:
+        cache[pos] = a[i]
+        cuda.syncthreads()
+
+        s = 1
+        while pos + s < BLOCK_DIM:
+            if pos % (2 * s) == 0:
+                cache[pos] += cache[pos + s]
+                cuda.syncthreads()
+            s *= 2
+
+        if pos == 0:
+            out[cuda.blockIdx.x] = cache[0]
 
 
 jit_sum_practice = cuda.jit()(_sum_practice)
 
 
 def sum_practice(a: Tensor) -> TensorData:
+    """A function."""
     (size,) = a.shape
     threadsperblock = THREADS_PER_BLOCK
     blockspergrid = (size // THREADS_PER_BLOCK) + 1
@@ -311,37 +323,37 @@ def tensor_reduce(
         BLOCK_DIM = 1024
         cache = cuda.shared.array(BLOCK_DIM, numba.float64)
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
-        block_x = cuda.blockIdx.x
-        thread_x = cuda.threadIdx.x
+        out_pos = cuda.blockIdx.x
+        pos = cuda.threadIdx.x
 
-        cache[thread_x] = reduce_value
+        cache[pos] = reduce_value
 
-        if block_x < out_size:
-            to_index(i, out_shape, out_index)
-            out_index[reduce_dim] = BLOCK_DIM * out_index[reduce_dim] + thread_x
+        if out_pos < out_size:
+            to_index(out_pos, out_shape, out_index)
+            out_index[reduce_dim] = BLOCK_DIM * out_index[reduce_dim] + pos
             final_pos = index_to_position(out_index, out_strides)
 
             if out_index[reduce_dim] < a_shape[reduce_dim]:
                 a_pos = index_to_position(out_index, a_strides)
-                cache[thread_x] = a_storage[a_pos]
+                cache[pos] = a_storage[a_pos]
 
                 cuda.syncthreads()
 
                 s = 1
                 while s < BLOCK_DIM:
-                    if thread_x % (2 * s) == 0:
-                        cache[thread_x] = fn(cache[thread_x], cache[thread_x + s])
+                    if pos % (2 * s) == 0:
+                        cache[pos] = fn(cache[pos], cache[pos + s])
                         cuda.syncthreads()
                     s *= 2
-            
-            if thread_x == 0:
-                out[final_pos] = cache[thread_x]
+
+            if pos == 0:
+                out[final_pos] = cache[pos]
 
     return jit(_reduce)  # type: ignore
 
 
 def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
-    """This is a practice square MM kernel to prepare for matmul.
+    """A practice square MM kernel to prepare for matmul.
 
     Given a storage `out` and two storage `a` and `b`. Where we know
     both are shape [size, size] with strides [size, 1].
@@ -395,6 +407,7 @@ jit_mm_practice = jit(_mm_practice)
 
 
 def mm_practice(a: Tensor, b: Tensor) -> TensorData:
+    """A function."""
     (size, _) = a.shape
     threadsperblock = (THREADS_PER_BLOCK, THREADS_PER_BLOCK)
     blockspergrid = 1

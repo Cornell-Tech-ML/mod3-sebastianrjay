@@ -231,8 +231,7 @@ def tensor_zip(
             broadcast_index(out_index, out_shape, b_shape, b_index)
             j = index_to_position(a_index, a_strides)
             k = index_to_position(b_index, b_strides)
-            out_pos = index_to_position(out_index, out_strides)
-            out[out_pos] = fn(a_storage[j], b_storage[k])
+            out[i] = fn(a_storage[j], b_storage[k])
 
     return cuda.jit()(_zip)  # type: ignore
 
@@ -478,7 +477,7 @@ def _tensor_matrix_multiply(
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
     # TODO: Implement for Task 3.4.
-    
+
     a_shared[cuda.blockIdx.x, cuda.threadIdx.y] = a_storage[
         batch * a_batch_stride + i * a_strides[-2] + pi * a_strides[-1]
     ]
@@ -491,11 +490,7 @@ def _tensor_matrix_multiply(
         total = 0
         for k in range(a_shape[-1]):
             total += a_shared[pi, k] * b_shared[k, pj]
-        out[
-            batch * out_strides[0]
-            + i * out_strides[-2]
-            + j * out_strides[-1]
-        ] = total
+        out[batch * out_strides[0] + i * out_strides[-2] + j * out_strides[-1]] = total
 
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
